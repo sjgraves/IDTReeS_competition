@@ -46,7 +46,10 @@ load_score_report_file <- function(team_name,folder,report_file_name,output="lis
 # use in for loop to generate long data format of all team submissions
 load_indvdID_file <- function(team_name,report_file_name,folder){
   
-  submission <- read.csv(paste0(folder,team_name,"/report/",team_name,"_",report_file_name,".csv"))
+  file_to_open <- paste0(folder,team_name,"/report/",team_name,"_",report_file_name,".csv")
+  print(file_to_open)
+  
+  submission <- read.csv(file_to_open)
   colnames(submission)[1] <- "team"
   submission$team <- team_name
   
@@ -61,4 +64,35 @@ load_cm_file <- function(team_name,report_file_name,folder){
   
   cm <- read.csv(paste0(folder,team_name,"/report/",team_name,"_",report_file_name,".csv"))
   return(cm)
+}
+
+
+# sort levels alphabetically with other at the end
+sort_alphabetically <- function(taxonID_string,reverse=T){
+  
+  factored <- as.factor(taxonID_string)
+  sorted <- factor(factored,levels=sort(levels(factored)))
+  
+  levels_noOther <- levels(factored)[!levels(factored)=="Other"]
+
+# now move other to end
+  if(reverse==T){
+    output <- factor(sorted,levels=c("Other",sort(levels_noOther,decreasing = T)))
+    
+  }else{output <- factor(sorted,levels=c(levels_noOther,"Other"))}
+
+  return(output)
+  }
+
+# list RS files
+list_RS_files <- function(folder,type,site,paths=T){
+  if(paths==F){
+    file_list <- list.files(paste(folder,type,sep="/"),
+                            pattern = paste0(site,"_[0-9]*\\.tif$"),full.names = F)
+  }else{
+    path_list <- list.files(paste(folder,type,sep="/"),
+                            pattern = paste0(site,"_[0-9]*\\.tif$"),full.names = T)
+  }
+  
+  
 }
