@@ -2,61 +2,27 @@
 # Includes taxonomic information and the number of samples per taxonID
 
 library(dplyr)
+library(tidyr)
 
 summarize_other <- TRUE
 
 # read in train data for classification task
-
 dir_data_in <- "../../../data/IDTREES_competition_2020/Data/"
 
 # MULTIPLE PLOTS ASSOCIATED WITH A SINGLE INDVDID IN THIS FILE - WHY???
-train <- read.csv(file.path(dir_data_in,"/train_v2/Field/train_data.csv"))
-eval_t2 <- read.csv(file.path(dir_data_in,"/evaluate/data_task2.csv"))
-
-# ITCs by plot
-indvdID_plots_train <- read.csv(file.path(dir_data_in,"/train_v2/Field/itc_rsFile.csv"))
-indvdID_plots <- data.frame(indvdID=indvdID_plots_train$indvdID
-                                  ,plotID=indvdID_plots_train$rsFile
-                            ,usage="train-t1")
-
-for(i in c("OSBS","MLBS","TALL")){
-  
-  itc_test <- read.csv(paste0(dir_data_in,"/test_v2/task2/ITC/test_",i,".csv"))
-  itc_test <- itc_test[,-1]
-  itc_test$usage <- "eval-t1"
-  indvdID_plots <- rbind(indvdID_plots,itc_test)
-  
-}
-
-# extract site
-indvdID_plots$siteID <- substr(indvdID_plots$indvdID,1,4)
-
-# MULTIPLE PLOTS FOR ONE INDIVDID - where crown intersects multiple plots
-indvdID_plots <- distinct(indvdID_plots)
-indvdID_plots[duplicated(indvdID_plots$indvdID)|duplicated(indvdID_plots$indvdID,fromLast = T),]
-nrow(distinct(indvdID_plots))
+data_train <- read.csv(file.path(dir_data_in,"/train_v2/Field/train_data.csv"))
+data_eval_t2 <- read.csv(file.path(dir_data_in,"/evaluate/data_task2.csv"))
 
 # join these datasets, need column for train and evaluate
-train$usage <- "train-t2"
-eval_t2$usage <- "eval-t2"
+data_train$usage <- "train-t2"
+data_eval_t2$usage <- "eval-t2"
 
-full_df <- bind_rows(train,eval_t2)
+full_df <- bind_rows(data_train,data_eval_t2)
 full_df <- distinct(full_df)
-
-# I have duplicate indvdIDs in here
-# this is due to differences in NEON data (not species ID)
-length(unique(full_df$indvdID))
-full_df[duplicated(full_df$indvdID)|duplicated(full_df$indvdID,fromLast = T),]
 
 # extract genus
 # https://stackoverflow.com/questions/15895050/using-gsub-to-extract-character-string-before-white-space-in-r
 full_df$genus <- gsub( " .*$", "", full_df$scientificName )
-
-# join plotID
-full_df <- full_join(full_df,indvdID_plots)
-full_df <- distinct(full_df)
-
-
 
 # create wide table
 # rows - taxonID
@@ -68,15 +34,8 @@ full_df$t2group[full_df$siteID=="TALL" & full_df$usage=="eval-t2"] <- "tall_eval
 full_df$t2group[full_df$usage=="eval-t2" & full_df$siteID !="TALL"] <- "om_eval"
 full_df$t2group[full_df$usage=="train-t2"& full_df$siteID !="TALL"] <- "om_train"
 
-# SUMMARIZE ITCS BY SITE AND GROUP (FOR TABLE) ----
-summary_itcs_byGroup <- full_df %>%
-  group_by(siteID,usage) %>%
-  summarize(count=n())
-
-
 # SUMMARIZE TAXONID BY GROUP (FOR FIGURE) ----
 summary_taxonID_byGroup <- full_df %>%
-  filter(usage!="eval-t1") %>%
   group_by(taxonID,t2group) %>%
   summarise(count=n(),.groups="drop") %>%
   pivot_wider(id_cols=taxonID,names_from=t2group,values_from=count) %>%
@@ -104,19 +63,15 @@ if(summarize_other==T){
 } else{output_df=summary_taxonID_byGroup}
 
 # SUMMARIZE BY SITE * GROUP (FOR TABLE)-----
-summary_bySiteUse <- full_df %>%
+# why do my numbers here differ from numbers in other script for t2?
+table_t2_itcs <- full_df %>%
+  select(indvdID,siteID,usage) %>%
+  distinct() %>%
   group_by(siteID,usage) %>%
   summarise(count=n(),.groups="drop")
 
 
-
 # SAVE OUTPUT ----
-
-write.csv(summary_bySiteUse
-          ,"output_data/table_site_trainEval.csv"
-          ,row.names = F)
-
-
 write.csv(output_df
           ,"output_data/table_taxonID_trainEval.csv"
           ,row.names = F

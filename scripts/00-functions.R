@@ -84,6 +84,13 @@ sort_alphabetically <- function(taxonID_string,reverse=T){
   return(output)
   }
 
+# sort taxonID by column value
+
+
+
+
+
+
 # list RS files
 list_RS_files <- function(folder,type,site,paths=T){
   if(paths==F){
@@ -93,6 +100,4 @@ list_RS_files <- function(folder,type,site,paths=T){
     path_list <- list.files(paste(folder,type,sep="/"),
                             pattern = paste0(site,"_[0-9]*\\.tif$"),full.names = T)
   }
-  
-  
 }
