@@ -1,21 +1,41 @@
 # script to create figures
 library(dplyr)
+library(plyr)
 library(tidyr)
 library(ggplot2)
 library(ggrepel)
 library(gridExtra)
+library(raster)
+library(RStoolbox)
 
 source("scripts/00-functions.R")
-custom_palette10 <- c("#F781BF","#377EB8","#E41A1C","#984EA3","#4DAF4A","#FF7F00","#35978F","#A65628","#FFED6F","#999999")
 
 taxonID_table <- read.csv("output_data/table_taxonID_trainEval.csv")
+genus_colors <- read.csv("genus_colors_9.csv",stringsAsFactors = F,na.strings = "")
+
+my_colors <- genus_colors$set3.8
+names(my_colors)
+names(my_colors) <- genus_colors$genus
+
+names(my_colors)
+my_colors
+
+# taxonIDs to remove from figures - no evaluation data
+taxonID_remove <- taxonID_table$taxonID[is.na(taxonID_table$om_eval) & is.na(taxonID_table$tall_eval)]
+taxonID_table <- taxonID_table[!taxonID_table$taxonID %in% taxonID_remove,]
+taxonID_table$taxonID = factor(taxonID_table$taxonID,
+                               levels=unique(taxonID_table$taxonID[order(taxonID_table$om_train,decreasing = F)]),ordered=TRUE)
+
+
 
 my_theme <-   theme(
   legend.text = element_text(face = "italic"),
   legend.position="bottom",
   strip.background = element_blank(),
-  strip.text = element_text(color="black",size=15),
-  axis.text.x = element_text(angle=45,vjust = 0.5),
+  plot.title = element_text(hjust = 0.5,size=14),
+  strip.text = element_text(color="black",size=14),
+  axis.text.y=element_text(size=12),
+  axis.text.x = element_text(vjust = 0.5),
   # Hide panel borders and remove grid lines
   panel.spacing=unit(1, "lines"),
   panel.border=element_rect(colour="black",size=1),
@@ -83,6 +103,7 @@ gll <- ggplot(data=logloss,aes(x=team,y=value,fill=sites)) +
   geom_text(aes(x=team,y=value,label=value),vjust=-.5,position=position_dodge(width=0.9)) +
   scale_fill_grey(start=0.8,end=0.2,name = "Evaluation site", labels = c("OSBS& & MLBS", "Only TALL")) +
   scale_y_continuous(trans="reverse") +
+  guides(fill = guide_legend(nrow=2)) +
   theme_light() +
   theme(
     legend.position="bottom",
@@ -101,47 +122,42 @@ ggsave("figures/barplot_metrics_noGatorsense_multipanel.png",plot=g,width=8,heig
 
 # TAXONID ACCURACY METRICS - ALL TAXA -----
 
-# need taxonID table with train eval numbers for sorting levels
-
-taxonID_table$taxonID = factor(taxonID_table$taxonID,
-                               levels=unique(taxonID_table$taxonID[order(taxonID_table$om_train,decreasing = F)]),ordered=TRUE)
-
 #taxonID_metrics <- read.csv("output_data/taxonID_metrics_allTeams.csv")
-taxonID_metrics <- read.csv("output_data/taxonID_metrics_allTeams_noTall.csv")
+taxonID_metrics <- read.csv("output_data/taxonID_metrics_noGatorsense_noTall.csv")
 
+# remove taxonID
+taxonID_metrics <- taxonID_metrics[!taxonID_metrics$taxonID %in% taxonID_remove,]
 taxonID_metrics$taxonID <- factor(taxonID_metrics$taxonID,
                                   levels=unique(taxonID_table$taxonID[order(taxonID_table$om_train
                                                                             ,decreasing = F)]),ordered=TRUE)
-#taxonID_metrics$taxonID <- sort_alphabetically(taxonID_metrics$taxonID)
 taxonID_metrics$genus <- as.factor(taxonID_metrics$genus)
-taxonID_metrics$metric2 <- factor(taxonID_metrics$metric2,levels=c("primary","secondary"))
-taxonID_metrics$team <- factor(taxonID_metrics$team,levels=c("Fujitsu","CAU","Jalapenos","Treepers","Gatorsense","baseline"))
+taxonID_metrics$team <- factor(taxonID_metrics$team,levels=c("Fujitsu","CAU","Jalapenos","Treepers","baseline"))
 
 # subset, only F1
 taxonID_f1 <- taxonID_metrics[taxonID_metrics$metric=="f1.score",]
 taxonID_f1$value <- round(taxonID_f1$value,2)
 
-# remove gatorsense
-levels(taxonID_f1$team)
-taxonID_f1 <- taxonID_f1[taxonID_f1$team!="Gatorsense",]
+# join genus colors
+#taxonID_f1 <- left_join(taxonID_f1,genus_colors)
 
 ggplot(data=taxonID_f1,aes(x=value,y=taxonID)) +
-  #geom_point(aes(color=genus),size=5) +
-  geom_label(data=taxonID_f1,aes(label=value,fill=genus),fontface="bold",alpha=0.7) +
+  geom_point(aes(fill=genus),color="white",size=8,shape=21) +
+  #geom_label(data=taxonID_f1,aes(label=value,fill=genus),fontface="bold",alpha=0.7) +
+  geom_text(aes(label=value),fontface="bold") +
   facet_grid(~team) +
   #geom_text_repel(data=taxonID_f1,aes(label=value),fontface="bold",direction="x") + 
   #scale_shape_manual(values=c(0,1,2),name="Metric") +
   #scale_alpha_discrete(range=c(1,0.3),guide=FALSE) +
-  #scale_fill_manual(values=custom_palette10,na.value="grey",name="Genus") +
-  scale_x_continuous(limits=c(-.01,1.0)) +
-  scale_fill_manual(values=custom_palette10,na.value="grey",name="Genus") +
-  scale_color_manual(values=custom_palette10,na.value="grey",name="Genus") +
+  scale_x_continuous(limits=c(-.05,1.0),breaks=c(0,0.5,1)) +
+  #scale_fill_manual(values=fig_colors,na.value="grey",name="Genus") +
+  #scale_color_manual(values=fig_colors,na.value="grey",name="Genus") +
+  scale_fill_manual(name = "genus",na.value="grey", values = my_colors) +
   theme_light() +
   labs(x="F1 score") +
   guides(fill = guide_legend(nrow=1,override.aes = aes(label = ""))) +
-  my_theme
+  my_theme 
 
-ggsave("figures/taxonID_metrics_noTall_orderTrain_noGatorsense.png",height=8,width=8)
+ggsave("figures/taxonID_metrics_noTall_orderTrain_noGatorsense_reformat.png",height=6,width=8)
 
 
 # TAXONID ACCURACY METRICS - SELECT TAXON ----
@@ -149,11 +165,10 @@ ggsave("figures/taxonID_metrics_noTall_orderTrain_noGatorsense.png",height=8,wid
 # this figure should show how well methods generalize and translate to other sites
 # use the summary data that distinguishes between no tall and only tall
 
-selected_taxonID <- c("PIPA2","PITA","LITU","QULA2","Other")
-selected_palette <- custom_palette10[c(3,6,7,10)]
+selected_taxonID <- c("PIPA2","PITA","LITU","QULA2","ACRU","Other")
 
-noTall <- read.csv("output_data/taxonID_metrics_allTeams_noTall.csv")
-onlyTall <- read.csv("output_data/taxonID_metrics_allTeams_onlyTall.csv")
+noTall <- read.csv("output_data/taxonID_metrics_noGatorsense_noTall.csv")
+onlyTall <- read.csv("output_data/taxonID_metrics_noGatorsense_onlyTall.csv")
 
 noTall$sites <- "OSBS & MLBS"
 onlyTall$sites <- "TALL"
@@ -167,7 +182,7 @@ taxonID_metrics <- taxonID_metrics[taxonID_metrics$taxonID %in% selected_taxonID
 
 taxonID_metrics$genus <- as.factor(taxonID_metrics$genus)
 taxonID_metrics$metric2 <- factor(taxonID_metrics$metric2,levels=c("primary","secondary"))
-taxonID_metrics$team <- factor(taxonID_metrics$team,levels=c("baseline","Fujitsu","CAU","Jalapenos","Treepers","Gatorsense"))
+taxonID_metrics$team <- factor(taxonID_metrics$team,levels=c("Fujitsu","CAU","Jalapenos","Treepers","Gatorsense","baseline"))
 
 taxonID_metrics$taxonID <- factor(taxonID_metrics$taxonID,
                                   levels=unique(taxonID_table$taxonID[order(taxonID_table$om_train
@@ -177,24 +192,19 @@ taxonID_metrics$fontface[taxonID_metrics$sites=="OSBS & MLBS"] <- "bold"
 taxonID_metrics$fontface[taxonID_metrics$sites=="TALL"] <- "italic"
 
 
-# remove gatorsense
-taxonID_metrics <- taxonID_metrics[taxonID_metrics$team!="Gatorsense",]
-
-
 ggplot(data=taxonID_metrics,aes(x=value,y=taxonID)) +
   #geom_label(data=taxonID_metrics,aes(label=value,fill=genus,fontface=fontface),alpha=0.7) +
-  geom_point(aes(fill=genus,shape=sites),size=5,color="black") +
+  geom_point(aes(fill=genus,shape=sites),size=8,color="white") +
   facet_grid(~team) +
   geom_text_repel(aes(label=value,fontface=fontface),box.padding = 0.5) + 
-  #scale_alpha_discrete(range=c(1,0.3),guide=FALSE) +
-  scale_fill_manual(values=selected_palette,na.value="grey",name="Genus") +
+  scale_fill_manual(name = "genus",na.value="grey", values = my_colors) +
   scale_shape_manual(values=c(21,24),name="Sites") +
-  scale_x_continuous(limits=c(-.01,1.0)) +
-  guides(fill = guide_legend(override.aes=list(shape=21))) +
+  scale_x_continuous(limits=c(-.05,1.0),breaks=c(0,0.5,1)) +
+  guides(fill = guide_legend(nrow=2,override.aes=list(shape=21)),shape=guide_legend(override.aes = list(color="black"))) +
   theme_light() +
   my_theme
 
-ggsave("figures/taxonID_metrics_comparing_sites_selected_taxonID.png",height=6,width=8)
+ggsave("figures/taxonID_metrics_comparing_sites_selected_taxonID_revised.png",height=6,width=8)
 
 
 
@@ -236,9 +246,11 @@ ggsave("figures/taxonID_groups_orderByTrain.png",height=8,width=6)
 # CONFUSION MATRIX -------------------
 
 # must run the confusion matrix file first
-type_of_cm <- "team"
+type_of_cm <- "aggregated"
 
 cm <- read.csv(paste0("output_data/","confusion_matrix_",type_of_cm,".csv"),stringsAsFactors = T)
+
+
 
 
 # sort levels for plotting
@@ -275,7 +287,14 @@ if(levels_sort=="alphabetically"){
 
 # AGGREGATED CONFUSION MATRIX -----
 type_of_cm <- "aggregated"
-cm <- read.csv("output_data/confusion_matrix_noGatorsenseaggregated.csv")
+cm <- read.csv(paste0("output_data/","confusion_matrix_noGatorsense_",type_of_cm,".csv"),stringsAsFactors = T)
+
+# drop taxonID
+# this is an important line but it is confusing logic
+# removing all rows that have the taxonID in either the Prediction or Truth column
+cm <- cm[!cm$Prediction %in% taxonID_remove &! cm$Truth %in% taxonID_remove,]
+cm$Prediction <- droplevels(cm$Prediction)
+cm$Truth <- droplevels(cm$Truth)
 
 # order Truth alphabetically
 cm$Truth <- sort_alphabetically(cm$Truth)
@@ -289,38 +308,200 @@ cm$fontface[cm$Prediction == cm$Truth] <- "bold"
 ggplot(cm,aes(x=Prediction,y=Truth,fill=TruthGenus,color=PredGenus,alpha=log(Freq)))+
   geom_tile(size=1) +
   geom_text(aes(label = FreqLabels,fontface=fontface),color="black", vjust = .5, alpha = 1) +
-  scale_fill_manual(values=custom_palette10,na.value="grey") +
-  scale_color_manual(values=custom_palette10,na.value="grey") +
+  scale_fill_manual(name = "genus",na.value="grey", values = my_colors) +
+  scale_color_manual(name = "genus",na.value="grey", values = my_colors) +
   labs(fill = "Genus") +
-  guides(color = FALSE, alpha = FALSE,fill=guide_legend(nrow=1)) +
+  guides(color = FALSE, alpha = FALSE,fill=guide_legend(nrow=2)) +
   theme_light() +
-  my_theme
+  my_theme +
+  theme(axis.text.x = element_text(vjust = 0.7,angle=45,size=12),)
 
-ggsave(filename = "figures/cm_aggregated_noGatorsense.png",height=8.5,width=8)
+ggsave(filename = "figures/cm_aggregated_noGatorsense_revised.png",height=8.5,width=8)
 
 # CONFUSION MATRIX BY TEAM -----
-ggplot(cm,aes(x=Prediction,y=Truth,fill=TruthGenus,color=PredGenus,alpha=log(Freq)))+
-  geom_tile(color="grey") +
-  geom_tile(size=1) +
-  geom_text(aes(label = FreqLabels),color="black", vjust = .5, alpha = 1) +
-  scale_fill_manual(values=custom_palette10,na.value="grey") +
-  scale_color_manual(values=custom_palette10,na.value="grey") +
-  labs(fill = "Genus") +
-  guides(color = FALSE, alpha = FALSE) +
-  theme_light() +
-  facet_wrap(~Team,nrow=3) +
-  theme(
-    strip.background = element_blank(),
-    strip.text = element_text(color="black",size=15),
-    axis.text.x = element_text(angle=90),
-    # Hide panel borders and remove grid lines
-    panel.spacing=unit(1, "lines"),
-    panel.border=element_rect(colour="black",size=1),
-    #panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-    )
+type_of_cm <- "team"
+cm <- read.csv(paste0("output_data/","confusion_matrix_noGatorsense_",type_of_cm,".csv"))
 
-ggsave(filename = "figures/cm_byTeam.png",height=14,width=10)
+# remove taxonID
+# this is an important line but it is confusing logic
+# removing all rows that have the taxonID in either the Prediction or Truth column
+cm <- cm[!cm$Prediction %in% taxonID_remove &! cm$Truth %in% taxonID_remove,]
+
+# order teams
+cm$Team <- factor(cm$Team,levels=c("Fujitsu","CAU","Jalapenos","Treepers","baseline"))
+
+# order Truth alphabetically
+cm$Truth <- sort_alphabetically(cm$Truth)
+cm$Prediction <- sort_alphabetically(cm$Prediction,reverse = F)
+
+# figure out how to add diag as bold
+cm$fontface <- "plain"
+
+cm$fontface[cm$Prediction == cm$Truth] <- "bold"
+
+for(team in levels(cm$Team)){
+  print(team)
+  cm_team <- cm[cm$Team==team,]
+  
+  ggplot(cm_team,aes(x=Prediction,y=Truth,fill=TruthGenus,color=PredGenus,alpha=log(Freq)))+
+    geom_tile(size=1) +
+    geom_text(aes(label = FreqLabels,fontface=fontface),color="black", vjust = .5, alpha = 1) +
+    scale_fill_manual(name = "genus",na.value="grey", values = my_colors) +
+    scale_color_manual(name = "genus",na.value="grey", values = my_colors) +
+    labs(fill = "Genus",title=team) +
+    guides(color = FALSE, alpha = FALSE,fill=guide_legend(nrow=2)) +
+    theme_light() +
+    my_theme +
+    theme(axis.text.x = element_text(vjust = 0.7,angle=45,size=12),)
+  
+  
+  ggsave(filename = paste0("figures/cm_",team,".png"),height=8.50,width=8)
+  
+}
+
+# DELINEATION SCORES ----
+
+scores <- read.csv("output_data/scores_itcs.csv",stringsAsFactors = T)
+scores$itc_id <- as.character(scores$itc_id)
+scores$team <- factor(scores$team,levels=c("Fujitsu","CAU","INRAE","baseline"))
+
+iou <- scores[scores$name=="IoU",]
+iou$name <- as.character(droplevels(iou$name))
+
+iou$area_bin <- round_any(iou$area,20,f=ceiling)
+
+iou_binned <- iou %>%
+  group_by(team,site,area_bin) %>%
+  dplyr:::summarise(IoU=round(mean(value),2))
+
+iou_binned$site <- factor(iou_binned$site,levels=c("OSBS","MLBS","TALL"))
+
+scatter <- ggplot(iou_binned,aes(x=area_bin,y=IoU,color=site))+
+  #geom_line() +
+  geom_point(size=4,alpha=0.5) +
+  stat_smooth(method="loess",se=F,color="black") +
+  labs(x="Crown area (sq m)") +
+  facet_wrap(~team,nrow=4,strip.position = "right") +
+  scale_y_continuous(limits=c(0,1)) +
+  theme_bw() +
+  my_theme +
+  theme(legend.text = element_text(face = "plain"),legend.position = "none",
+        panel.grid.major = element_line(),
+        axis.text.y = element_text(size=8),
+        strip.text = element_blank())
+
+#ggsave("figures/scatterplot_iou_areaBin.png",width=6,height=4)
+
+
+# boxplot by team and site?
+boxplot <- ggplot(iou_binned,aes(x=site,y=IoU))+
+  geom_boxplot(aes(fill=site),alpha=0.5) +
+  facet_wrap(~team,nrow=4,strip.position = "right") +
+  theme_bw() +
+  my_theme +
+  theme(panel.grid.major = element_line(),
+        legend.position = "none",
+        axis.title.y = element_blank(),axis.text.y = element_blank())
+
+combo <- grid.arrange(scatter,boxplot,nrow=1,widths=c(2,1))
+
+ggsave("figures/iou_scatter_boxplot.png",plot=combo,width=6,height=4)
+
+
+
+# EXAMPLE DELINEATION PLOTS -----
+rsplot <- rs_paths[4]
+rs_folder <- "/Users/sjgraves/idtrees_competition_evaluation/RS/"
+rs_paths <- list_RS_files(rs_folder,type="RGB",site=site,paths=T)
+site <- "MLBS"
+base_folder <- "/Users/sjgraves/idtrees_competition_evaluation/"
+team_list <- read_csv("~/idtrees_competition_evaluation/task1_teams_list.csv")
+
+delin <- read.csv("output_data/delineations_with_RSname.csv")
+sground <- st_read("/Users/sjgraves/idtrees_competition_evaluation/eval_data/MLBS_ground.csv",quiet=T)
+sground <- sground[,-1]
+
+submission <- st_read(paste0(base_folder,"eval_team1_final/submission/MLBS_submission.csv"),quiet=T)
+submission$id <- paste("NA",site,seq(1:nrow(submission)),sep=".")
+submission <- submission[1,]
+
+for(t in 1:nrow(team_list)){
+  print(t)
+  team_name <- as.character(team_list$team[t])
+  team_number <- as.character(team_list$name[t])
+  tsubmission <- st_read(paste0(base_folder,"eval_",team_number
+                               ,"_final","/submission/MLBS_submission.csv"),quiet=T)
+  tsubmission$id <- paste(team_name,site,seq(1:nrow(tsubmission)),sep=".")
+  submission <- rbind(submission,tsubmission)
+}
+
+submission <- submission[-1,]
+submission$team <- factor(gsub("\\..*","", submission$id),levels=c("Fujitsu","CAU","INRAE","baseline"))
+
+if(site=="MLBS"|site=="OSBS"){
+  st_crs(sground) <- 32617
+  st_crs(submission) <- 32617
+} else {st_crs(sground) <- 32616
+st_crs(submission) <- 32616}
+
+rs <- stack(rsplot)
+
+# subset data
+plotground <- st_crop(sground,extent(rs))
+plotsubmission <- st_crop(submission,extent(rs))
+
+subcolor <- "black"
+groundcolor <- "orange"
+subsize <- 2
+delin_theme <- theme(legend.position = "none",
+                       axis.title=element_blank(),axis.text=element_blank(),axis.ticks = element_blank(),
+                     plot.title = element_text(hjust=0.5,size=16))
+
+
+nsub <- plotsubmission %>%
+  dplyr::count(team)
+
+glist <- list()
+
+for(t in 1:nrow(team_list)){
+  team_name <- team_list$team[t]
+  print(team_name)
+  
+  g <- ggRGB(rs,1, g=2, b=3,stretch="lin") +
+    geom_sf(data=plotsubmission[plotsubmission$team==team_name,],color=subcolor,size=2,alpha=0.1) +
+    geom_sf(data=plotground,fill=NA,color=groundcolor,size=4) +
+    ggtitle(team_name) +
+    annotate("text",x=-Inf,y=-Inf,hjust=-0.5,vjust=-1,label=paste("n=",nsub$n[nsub$team==team_name]),size=12,color="white") +
+    theme_bw() +
+    delin_theme
+  
+  glist[[t]] <- g
+
+}
+
+gpanel <- grid.arrange(glist[[1]],glist[[2]],glist[[3]],glist[[4]],ncol=4)
+ggsave("figures/delineation_examples.png",plot=gpanel,width=12,height=3)
+
+# HSI REFL FOR PLOTS ----
+rsdf <- read.csv("output_data/sample_hsi_values.csv")
+
+rsdf$site <- factor(rsdf$site,levels=c("OSBS","MLBS","TALL"))
+
+ggplot(data=rsdf) +
+  #geom_point(data=rsdf,alpha=0.1,aes(x=band,y=value,color=site)) +
+  #geom_point(data=rsdf_mean,aes(x=band,y=mean,color=site)) +
+  geom_errorbar(aes(y=mean,x=micro_group,ymin=mean-sd, ymax=mean+sd,color=site),
+                width=.2,position=position_dodge(0.05),alpha=0.5) +
+  geom_line(aes(x=micro_group,y=mean,color=site)) +
+  scale_y_continuous(limits = c(0,6000)) +
+  labs(x="Reflectance",y="Wavelength") +
+  #facet_wrap(~site,ncol=1) +
+  theme_bw() +
+  my_theme +
+  theme(legend.position = c(.9,.9))
+
+ggsave("figures/wavelength.png",width=8,height=4)
+
 
 
 
