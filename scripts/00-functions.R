@@ -1,10 +1,17 @@
 # supporting functions to analyze IDTReeS competition
 
 
+
+
 load_score_report_file <- function(team_name,folder,report_file_name,output="list"){
   
-  # red in file
-  score_report <- read.csv(paste0(folder,team_name,"/report/",team_name,report_file_name))
+  # build file path
+  file_path <- paste0(folder,team_name,"/",team_name,report_file_name)
+  
+  print(paste0("reading file: ",file_path))
+  
+  # read in file
+  score_report <- read.csv(file_path)
   
   # overall metrics
   logloss <- round(score_report[nrow(score_report),ncol(score_report)],1)
@@ -46,7 +53,7 @@ load_score_report_file <- function(team_name,folder,report_file_name,output="lis
 # use in for loop to generate long data format of all team submissions
 load_indvdID_file <- function(team_name,report_file_name,folder){
   
-  file_to_open <- paste0(folder,team_name,"/report/",team_name,"_",report_file_name,".csv")
+  file_to_open <- paste0(folder,team_name,"/",team_name,"_",report_file_name,".csv")
   print(file_to_open)
   
   submission <- read.csv(file_to_open)
@@ -85,11 +92,6 @@ sort_alphabetically <- function(taxonID_string,reverse=T){
   }
 
 # sort taxonID by column value
-
-
-
-
-
 
 # list RS files
 list_RS_files <- function(folder,type,site,paths=T){

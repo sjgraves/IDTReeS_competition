@@ -31,7 +31,7 @@ for(t in 1:length(teams)){
                                           report_file_name = paste0("_",set,"_scoreReport.csv"),
                                           output="taxonID")
     
-    team_output$set <- set
+    team_output$sites <- set
     taxonID_metrics <- rbind(taxonID_metrics,team_output)
  
   } # end set loop
