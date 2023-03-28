@@ -52,7 +52,8 @@ metrics <- rbind(metrics,onlyTall)
 metrics_long <- pivot_longer(data=metrics,cols=c("accuracy","macro","weighted","logloss"),names_to="metric")
 
 # drop accuracy
-metrics_long <- metrics_long[metrics_long$metric!="accuracy",]
+# Nov 2022 - not dropping accuracy because editor wants it
+#metrics_long <- metrics_long[metrics_long$metric!="accuracy",]
 
 # save output
 write.csv(metrics_long,"output_data/table_metrics_allTeams.csv",row.names = F)

@@ -17,6 +17,7 @@ eval_folder <- paste0(base_folder,"eval_data/")
 team_list <- read_csv("~/idtrees_competition_evaluation/task1_teams_list.csv")
 sites <- c("MLBS","OSBS","TALL")
 
+
 # CREATE DATA FRAME OF NUMBER OF DELINEATIONS PER PLOT ----
 # loops over all teams and all sites
 # reads in RS files, creates extent, counts delineations center points within extent
@@ -138,4 +139,91 @@ long_scores_join$site <- substr(long_scores_join$itc_id,1,4)
 
 # save data
 write.csv(long_scores_join,"output_data/scores_itcs.csv",row.names = F)
+
+
+#### CREATE DATA FRAME OF ALL DELINATIONS AND PLOT INFO TO USE FOR CREATING A FIGURE --
+
+# uses similar code as creating number of delinations per plot
+loopOut <- data.frame(team_name=NA,site=NA,rs_name=NA,id=NA)
+
+for(t in 1:nrow(team_list)){
+  
+  team_name <- as.character(team_list$team[t])
+  team_number <- as.character(team_list$name[t])
+  print(team_name)
+  
+  for(s in 1:length(sites)){
+    
+    site <- sites[s]
+    
+    rs_names <- list_RS_files(rs_folder,type="RGB",site=site,paths=F)
+    rs_paths <- list_RS_files(rs_folder,type="RGB",site=site,paths=T)
+    
+    ground <- st_read(paste0(eval_folder,site,"_ground.csv"),quiet=T)
+    ground <- ground[,-1]
+    
+    submission <- st_read(paste0(base_folder,"eval_",team_number
+                                 ,"_final","/submission/",site,"_submission.csv"),quiet=T)
+    submission <- submission[-1]
+    
+    # add unique ID number to submission
+    submission$id <- paste(team_name,site,seq(1:nrow(submission)),sep=".")
+    
+    if(site=="MLBS"|site=="OSBS"){
+      st_crs(ground) <- 32617
+      st_crs(submission) <- 32617
+    } else {st_crs(ground) <- 32616
+    st_crs(submission) <- 32616
+    }
+    
+    # How many submissions per plot? ----
+    
+    # generate center points from itcs
+    itc_cent <- st_centroid(submission)
+    
+    # create empty list to store list of itc ids and rs path name
+    # should build in the loop since we do not know the length for each iteratrion
+
+    # loop through rasters, generate extents
+    # need to know the extents to be able to count the number of delineations per plot
+    for(i in 1:length(rs_paths)){
+      print(rs_names[i])
+      rsi <- raster(rs_paths[i])
+      rsi_extent <- as(extent(rsi), "SpatialPolygons")
+      crs(rsi_extent) <- crs(ground)
+      rs_extent <- st_as_sf(rsi_extent)
+      itc_within <- itc_cent[st_within(itc_cent,rs_extent,sparse=F),]
+      
+      if(nrow(itc_within)>0){
+        loopDF <- data.frame(team_name=team_name,site=site,rs_name=rs_names[i],id=itc_within$id)
+
+      } else{ print("no itcs")}
+      loopOut <- rbind(loopOut,loopDF)
+      #loopJoin <- left_join(loopOut,submission,by="id")
+    } # end rs loop
+  } # end site loop
+} # end team loop
+
+loopOut <- loopOut[-1,]
+
+# next loop to join submission info to 
+
+
+# summarize output
+tally_itcs_perPlot <- loopOut %>%
+  group_by(team_name,site,rs_name) %>%
+  tally()
+
+mean_itcs_perPlot <- loopOut %>%
+  group_by(team_name,site,rs_name) %>%
+  tally() %>%
+  summarize(avg_itcs=mean(n))
+
+# add rs name info to submission info
+
+# save data
+write.csv(mean_itcs_perPlot,"output_data/table_itcMean_byTeamSite.csv",row.names = F)
+write.csv(tally_itcs_perPlot,"output_data/table_itcCount_byTeamSitePlot.csv",row.names = F)
+write.csv(loopOut,"output_data/delineations_with_RSname.csv",row.names = F)
+
 

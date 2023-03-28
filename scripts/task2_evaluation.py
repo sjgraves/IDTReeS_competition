@@ -13,7 +13,8 @@ from sklearn import metrics
 from sklearn.metrics import log_loss
 from sklearn.metrics import confusion_matrix
 
-cwd = '/Users/sjgraves/Google Drive/analysis/IDTReeS/competition2020_analysis/IDTReeS_competition/'
+
+cwd = '/Volumes/GoogleDrive/My Drive/analysis/IDTReeS/competition2020_analysis/IDTReeS_competition/'
 
 # set team name - this will be used when reading and saving the right file
 
@@ -27,13 +28,21 @@ team_list = sorted([f for f in os.listdir(submission_folder) if not f.startswith
 
 eval_site_options = ['trained','untrained','all']
 
+# options for running one loop
+team = 'CAU'
+eval_site = 'trained'
+
 for team in team_list:
     for eval_site in eval_site_options:
         print(team,eval_site)
         
         # set file names
         submission_file = submission_folder + team + "/task2_submission.csv"
-        ground_file = evaluation_folder + "task2_labels.csv"
+        #ground_file = evaluation_folder + "task2_labels.csv"
+        
+        #updating file name to use what is in the folder
+        ground_file = evaluation_folder + "task2_labels_WITHHOLD.csv"
+
         trained_data = evaluation_folder + "taxonID_ScientificName.csv"
         
         # import data

@@ -34,6 +34,14 @@ full_df$t2group[full_df$siteID=="TALL" & full_df$usage=="eval-t2"] <- "tall_eval
 full_df$t2group[full_df$usage=="eval-t2" & full_df$siteID !="TALL"] <- "om_eval"
 full_df$t2group[full_df$usage=="train-t2"& full_df$siteID !="TALL"] <- "om_train"
 
+# SUMMARIZE TAXONID BY SITE (FOR APPENDIX A) ----
+summary_taxonID_bySite <- full_df %>%
+  group_by(taxonID,siteID) %>%
+  summarise(count=n(),.groups="drop") %>%
+  pivot_wider(id_cols=taxonID,names_from=siteID,values_from=count) %>%
+  left_join(full_df[colnames(full_df) %in% c("scientificName","taxonID")]) %>%
+  distinct()
+
 # SUMMARIZE TAXONID BY GROUP (FOR FIGURE) ----
 summary_taxonID_byGroup <- full_df %>%
   group_by(taxonID,t2group) %>%
@@ -74,5 +82,11 @@ table_t2_itcs <- full_df %>%
 # SAVE OUTPUT ----
 write.csv(output_df
           ,"output_data/table_taxonID_trainEval.csv"
+          ,row.names = F
+          ,na="")
+
+# SAVE TAXONID BY SITE FOR APPENDIX A ---
+write.csv(summary_taxonID_bySite
+          ,"output_data/table_taxonID_bySite_AppA.csv"
           ,row.names = F
           ,na="")

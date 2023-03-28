@@ -143,7 +143,7 @@ taxonID_f1 <- taxonID_f1[!taxonID_f1$taxonID=="QUMO4",]
 tmp <- taxonID_table[!is.na(taxonID_table$om_eval),]
 ylab <- paste0(rev(tmp$taxonID)," (",rev(tmp$om_train),")")
 
-ggplot(data=taxonID_f1,aes(x=value,y=taxonID)) +
+gall <- ggplot(data=taxonID_f1,aes(x=value,y=taxonID)) +
   geom_point(aes(fill=genus),color="white",size=8,shape=21) +
   #geom_label(data=taxonID_f1,aes(label=value,fill=genus),fontface="bold",alpha=0.7) +
   geom_text(aes(label=value),fontface="plain") +
@@ -157,9 +157,10 @@ ggplot(data=taxonID_f1,aes(x=value,y=taxonID)) +
   #scale_color_manual(values=fig_colors,na.value="grey",name="Genus") +
   scale_fill_manual(name = "genus",na.value="grey", values = my_colors) +
   theme_light() +
-  labs(x="F1 score") +
-  guides(fill = guide_legend(nrow=1,override.aes = aes(label = ""))) +
-  my_theme 
+  #labs(x="F1 score") +
+  guides(fill = guide_legend(nrow=1,override.aes = aes(label = ""),title="Genus")) +
+  my_theme +
+  theme(legend.position = "top",axis.title.x = element_blank())
 
 ggsave("figures/taxonID_metrics_noTall_orderTrain_noGatorsense_reformat.png",height=6,width=8,units="in")
 
@@ -195,22 +196,30 @@ taxonID_metrics$fontface <- NA
 taxonID_metrics$fontface[taxonID_metrics$sites=="OSBS & MLBS"] <- "plain"
 taxonID_metrics$fontface[taxonID_metrics$sites=="TALL"] <- "bold"
 
+tmp_select <- taxonID_table[taxonID_table$taxonID %in% selected_taxonID,]
+ylab_select <- paste0(rev(tmp_select$taxonID)," (",rev(tmp_select$om_train),")")
 
-ggplot(data=taxonID_metrics,aes(x=value,y=taxonID)) +
+gselect <- ggplot(data=taxonID_metrics,aes(x=value,y=taxonID)) +
   #geom_label(data=taxonID_metrics,aes(label=value,fill=genus,fontface=fontface),alpha=0.7) +
   geom_point(aes(fill=genus,shape=sites),size=8,color="white") +
   facet_grid(~team) +
   geom_text_repel(aes(label=value,fontface=fontface),box.padding = 0.5) + 
-  scale_fill_manual(name = "genus",na.value="grey", values = my_colors) +
+  scale_fill_manual(name = "genus",na.value="grey", values = my_colors,guide=F) +
   scale_shape_manual(values=c(21,24),name="Sites",labels=c("OSBS & MLBS","**TALL**")) +
   scale_x_continuous(limits=c(-.05,1.0),breaks=c(0,0.5,1)) +
-  guides(fill = guide_legend(nrow=1,override.aes=list(shape=21)),shape=guide_legend(override.aes = list(color="black"))) +
+  scale_y_discrete(labels=ylab_select) +
+  #guides(fill = guide_legend(nrow=1,override.aes=list(shape=21)),shape=guide_legend(override.aes = list(color="black"))) +
+  guides(shape=guide_legend(override.aes = list(color="black"))) +
   labs(x="F1 score") +
   theme_light() +
   my_theme +
-  theme(legend.text = element_markdown())
+  theme(legend.text = element_markdown(),strip.text = element_blank())
 
 ggsave("figures/taxonID_metrics_comparing_sites_selected_taxonID_revised.png",height=6,width=8)
+
+# COMBINE FOR FIGURE 7 -----
+gcombo <- grid.arrange(gall,gselect,nrow=2,heights=c(2,1.5))
+ggsave("figures/figure7.png",plot=gcombo,units="in",height=8,width=8)
 
 
 
@@ -258,9 +267,9 @@ gwide <- ggplot(data=taxonID_long,aes(x=taxonID,y=count)) +
   labs(x="taxonID",y="Number of samples") +
   my_theme +
   theme(legend.position = c(0.85,0.7),legend.text = element_markdown()
-        ,axis.text.x=element_text(angle=45,vjust=0.5),panel.grid.major = element_line())
+        ,axis.text.x=element_text(angle=45,hjust=0.9,vjust = 0.9),panel.grid.major = element_line())
 
-#ggsave("figures/taxonID_groups_orderByTrain.png",plot=gwide,height=4,width=8,units="in")
+#ggsave("figures/taxonID_groups_orderByTrain.png",plot=gwide,height=4,width=8,units="in")ggsave("figures/Figure.png",plot=gwide,height=4,width=8,units="in")
 
 
 # HSI REFL FOR PLOTS ----
@@ -294,7 +303,9 @@ gspec <- ggplot(data=rsdf) +
 
 # MULTI-PANEL PLOT FIGURE 3 ----
 both <- grid.arrange(gwide,gspec,ncol=1)
-ggsave("figures/figure3.png",plot=both,width=8,height=6,units="in")
+ggsave("figures/Figure3.png",plot=both,width=8,height=6,units="in")
+ggsave("figures/Figure3.pdf",plot=both,width=8,height=7,units="in")
+
 
 # CONFUSION MATRIX -------------------
 
